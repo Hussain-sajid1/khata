@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAWOOD AB COLLECTIONS - Simple Ledger</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7fafc; margin: 0; padding: 0; }
+    .container { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
+    h1 { text-align: center; color: #0ea5e9; }
+    nav { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; }
+    nav button { padding: 8px 16px; border: none; background: #e0f2fe; color: #0369a1; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    nav button.active { background: #0ea5e9; color: #fff; }
+    .section { display: none; }
+    .section.active { display: block; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+    th { background: #f0f9ff; }
+    tr:nth-child(even) { background: #f9fafb; }
+    .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+    .form-row label { flex: 1; }
+    .form-row input, .form-row select { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
+    .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-primary { background: #0ea5e9; color: #fff; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-small { font-size: 0.9em; padding: 4px 8px; }
+    .summary { margin: 16px 0; padding: 12px; background: #e0f2fe; border-radius: 4px; color: #0369a1; }
+    @media (max-width: 600px) { .form-row { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>DAWOOD AB COLLECTIONS<br><span style="font-size:0.7em; color:#0369a1">Simple Ledger</span></h1>
+    <nav>
+      <button id="tab-customers" class="active">Customers</button>
+      <button id="tab-sales">Sales</button>
+      <button id="tab-payments">Payments</button>
+      <button id="tab-summary">Summary</button>
+    </nav>
+
+    <!-- Customers Section -->
+    <div id="section-customers" class="section active">
+      <h2>Customer List</h2>
+      <form id="customer-form">
+        <div class="form-row">
+          <label>Name<br><input type="text" id="customer-name" required></label>
+          <label>Phone<br><input type="text" id="customer-phone"></label>
+        </div>
+        <div class="form-row">
+          <label>City<br><input type="text" id="customer-city"></label>
+          <label></label>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Customer</button>
+      </form>
+      <table id="customers-table">
+        <thead><tr><th>Name</th><th>Phone</th><th>City</th><th>Balance</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Sales Section -->
+    <div id="section-sales" class="section">
+      <h2>Sales</h2>
+      <form id="sale-form">
+        <div class="form-row">
+          <label>Customer<br>
+            <select id="sale-customer" required></select>
+          </label>
+          <label>Amount (PKR)<br>
+            <input type="number" id="sale-amount" min="1" required>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Sale</button>
+      </form>
+      <table id="sales-table">
+        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Payments Section -->
+    <div id="section-payments" class="section">
+      <h2>Payments</h2>
+      <form id="payment-form">
+        <div class="form-row">
+          <label>Customer<br>
+            <select id="payment-customer" required></select>
+          </label>
+          <label>Amount (PKR)<br>
+            <input type="number" id="payment-amount" min="1" required>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Add Payment</button>
+      </form>
+      <table id="payments-table">
+        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Summary Section -->
+    <div id="section-summary" class="section">
+      <h2>Summary</h2>
+      <div class="summary" id="summary-info"></div>
+      <table id="summary-table">
+        <thead><tr><th>Customer</th><th>Balance</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // --- Data Storage ---
+    function getData(key) {
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    }
+    function setData(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    // --- Customers ---
+    function renderCustomers() {
+      const customers = getData('customers');
+      const tbody = document.querySelector('#customers-table tbody');
+      tbody.innerHTML = '';
+      customers.forEach((c, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${c.name}</td><td>${c.phone}</td><td>${c.city}</td><td>${formatPKR(c.balance)}</td>
+          <td><button class="btn btn-danger btn-small" onclick="deleteCustomer(${i})">Delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+      updateCustomerSelects();
+      renderSummary();
+    }
+    function addCustomer(e) {
+      e.preventDefault();
+      const name = document.getElementById('customer-name').value.trim();
+      const phone = document.getElementById('customer-phone').value.trim();
+      const city = document.getElementById('customer-city').value.trim();
+      if (!name) return;
+      const customers = getData('customers');
+      customers.push({ name, phone, city, balance: 0 });
+      setData('customers', customers);
+      e.target.reset();
+      renderCustomers();
+    }
+    function deleteCustomer(idx) {
+      if (!confirm('Delete this customer?')) return;
+      const customers = getData('customers');
+      customers.splice(idx, 1);
+      setData('customers', customers);
+      renderCustomers();
+      renderSales();
+      renderPayments();
+    }
+    function updateCustomerSelects() {
+      const customers = getData('customers');
+      const saleSel = document.getElementById('sale-customer');
+      const paySel = document.getElementById('payment-customer');
+      saleSel.innerHTML = paySel.innerHTML = '';
+      customers.forEach((c, i) => {
+        const opt = `<option value="${i}">${c.name}</option>`;
+        saleSel.innerHTML += opt;
+        paySel.innerHTML += opt;
+      });
+    }
+
+    // --- Sales ---
+    function renderSales() {
+      const sales = getData('sales');
+      const customers = getData('customers');
+      const tbody = document.querySelector('#sales-table tbody');
+      tbody.innerHTML = '';
+      sales.forEach((s, i) => {
+        const c = customers[s.customerIdx] || { name: 'Unknown' };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${formatDate(s.date)}</td><td>${c.name}</td><td>${formatPKR(s.amount)}</td>
+          <td><button class="btn btn-danger btn-small" onclick="deleteSale(${i})">Delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    function addSale(e) {
+      e.preventDefault();
+      const customerIdx = +document.getElementById('sale-customer').value;
+      const amount = +document.getElementById('sale-amount').value;
+      if (isNaN(customerIdx) || !amount) return;
+      const sales = getData('sales');
+      sales.push({ customerIdx, amount, date: Date.now() });
+      setData('sales', sales);
+      // Update customer balance
+      const customers = getData('customers');
+      customers[customerIdx].balance += amount;
+      setData('customers', customers);
+      e.target.reset();
+      renderSales();
+      renderCustomers();
+    }
+    function deleteSale(idx) {
+      if (!confirm('Delete this sale?')) return;
+      const sales = getData('sales');
+      const sale = sales[idx];
+      sales.splice(idx, 1);
+      setData('sales', sales);
+      // Update customer balance
+      const customers = getData('customers');
+      customers[sale.customerIdx].balance -= sale.amount;
+      setData('customers', customers);
+      renderSales();
+      renderCustomers();
+    }
+
+    // --- Payments ---
+    function renderPayments() {
+      const payments = getData('payments');
+      const customers = getData('customers');
+      const tbody = document.querySelector('#payments-table tbody');
+      tbody.innerHTML = '';
+      payments.forEach((p, i) => {
+        const c = customers[p.customerIdx] || { name: 'Unknown' };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${formatDate(p.date)}</td><td>${c.name}</td><td>${formatPKR(p.amount)}</td>
+          <td><button class="btn btn-danger btn-small" onclick="deletePayment(${i})">Delete</button></td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    function addPayment(e) {
+      e.preventDefault();
+      const customerIdx = +document.getElementById('payment-customer').value;
+      const amount = +document.getElementById('payment-amount').value;
+      if (isNaN(customerIdx) || !amount) return;
+      const payments = getData('payments');
+      payments.push({ customerIdx, amount, date: Date.now() });
+      setData('payments', payments);
+      // Update customer balance
+      const customers = getData('customers');
+      customers[customerIdx].balance -= amount;
+      setData('customers', customers);
+      e.target.reset();
+      renderPayments();
+      renderCustomers();
+    }
+    function deletePayment(idx) {
+      if (!confirm('Delete this payment?')) return;
+      const payments = getData('payments');
+      const payment = payments[idx];
+      payments.splice(idx, 1);
+      setData('payments', payments);
+      // Update customer balance
+      const customers = getData('customers');
+      customers[payment.customerIdx].balance += payment.amount;
+      setData('customers', customers);
+      renderPayments();
+      renderCustomers();
+    }
+
+    // --- Summary ---
+    function renderSummary() {
+      const customers = getData('customers');
+      const tbody = document.querySelector('#summary-table tbody');
+      tbody.innerHTML = '';
+      let total = 0;
+      customers.forEach(c => {
+        total += c.balance;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${c.name}</td><td>${formatPKR(c.balance)}</td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('summary-info').textContent =
+        'Total Receivable: ' + formatPKR(total);
+    }
+
+    // --- Helpers ---
+    function formatDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString();
+    }
+    function formatPKR(amount) {
+      return '₨' + amount.toLocaleString('en-PK');
+    }
+
+    // --- Tab Navigation ---
+    document.querySelectorAll('nav button').forEach(btn => {
+      btn.onclick = function() {
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById('section-' + this.id.replace('tab-', '')).classList.add('active');
+      };
+    });
+
+    // --- Form Listeners ---
+    document.getElementById('customer-form').onsubmit = addCustomer;
+    document.getElementById('sale-form').onsubmit = addSale;
+    document.getElementById('payment-form').onsubmit = addPayment;
+
+    // --- Initial Render ---
+    renderCustomers();
+    renderSales();
+    renderPayments();
+    renderSummary();
+
+    // --- Expose delete functions for inline buttons ---
+    window.deleteCustomer = deleteCustomer;
+    window.deleteSale = deleteSale;
+    window.deletePayment = deletePayment;
+  </script>
+</body>
+</html> 
