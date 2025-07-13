@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAWOOD AB COLLECTIONS - Simple Ledger</title>
+  <title>DAWOOD AB COLLECTIONS - Ledger</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f7fafc; margin: 0; padding: 0; }
     .container { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; }
     h1 { text-align: center; color: #0ea5e9; }
-    nav { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; }
+    nav { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     nav button { padding: 8px 16px; border: none; background: #e0f2fe; color: #0369a1; border-radius: 4px; cursor: pointer; font-weight: bold; }
     nav button.active { background: #0ea5e9; color: #fff; }
     .section { display: none; }
@@ -22,15 +22,58 @@
     .form-row input, .form-row select { width: 100%; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; }
     .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; }
     .btn-primary { background: #0ea5e9; color: #fff; }
+    .btn-success { background: #22c55e; color: #fff; }
     .btn-danger { background: #ef4444; color: #fff; }
     .btn-small { font-size: 0.9em; padding: 4px 8px; }
     .summary { margin: 16px 0; padding: 12px; background: #e0f2fe; border-radius: 4px; color: #0369a1; }
+    .actions { margin: 16px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+    .status { padding: 8px; margin: 8px 0; border-radius: 4px; }
+    .status.success { background: #dcfce7; color: #166534; }
+    .status.error { background: #fee2e2; color: #991b1b; }
+    .login-screen { text-align: center; padding: 40px; }
+    .login-form { max-width: 300px; margin: 0 auto; }
+    .customer-view { background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    .customer-info { background: #e0f2fe; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+    .hidden { display: none; }
     @media (max-width: 600px) { .form-row { flex-direction: column; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>DAWOOD AB COLLECTIONS<br><span style="font-size:0.7em; color:#0369a1">Simple Ledger</span></h1>
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen">
+    <h1>DAWOOD AB COLLECTIONS</h1>
+    <p>Ledger System</p>
+    <div class="login-form">
+      <h3>Enter Password</h3>
+      <div style="position: relative; margin: 10px 0;">
+        <input type="password" id="password-input" placeholder="Enter password" style="width: 100%; padding: 10px; padding-right: 40px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+        <button type="button" onclick="togglePassword()" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px;">👁️</button>
+      </div>
+      <button onclick="login()" class="btn btn-primary" style="width: 100%; padding: 10px;">Login</button>
+      <p style="margin-top: 20px; font-size: 0.9em; color: #666;">
+        <strong>For Customers:</strong><br>
+        Enter your phone number to view your ledger
+      </p>
+      <input type="text" id="customer-phone-input" placeholder="Enter your phone number" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px;">
+      <button onclick="customerLogin()" class="btn btn-success" style="width: 100%; padding: 10px;">View My Ledger</button>
+    </div>
+  </div>
+
+  <!-- Main Ledger (Admin View) -->
+  <div id="main-ledger" class="container hidden">
+    <h1>DAWOOD AB COLLECTIONS<br><span style="font-size:0.7em; color:#0369a1">Admin Ledger</span></h1>
+    
+    <!-- Actions Bar -->
+    <div class="actions">
+      <button class="btn btn-success" onclick="saveData()">💾 Save Data</button>
+      <button class="btn btn-primary" onclick="exportData()">📥 Export All Data</button>
+      <button class="btn btn-primary" onclick="importData()">📤 Import Data</button>
+      <button class="btn btn-danger" onclick="logout()">🚪 Logout</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+    </div>
+    
+    <div id="status-message"></div>
+    
     <nav>
       <button id="tab-customers" class="active">Customers</button>
       <button id="tab-sales">Sales</button>
@@ -48,12 +91,12 @@
         </div>
         <div class="form-row">
           <label>City<br><input type="text" id="customer-city"></label>
-          <label></label>
+          <label>Address<br><input type="text" id="customer-address"></label>
         </div>
         <button type="submit" class="btn btn-primary">Add Customer</button>
       </form>
       <table id="customers-table">
-        <thead><tr><th>Name</th><th>Phone</th><th>City</th><th>Balance</th><th>Action</th></tr></thead>
+        <thead><tr><th>Name</th><th>Phone</th><th>City</th><th>Balance</th><th>Actions</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -70,10 +113,18 @@
             <input type="number" id="sale-amount" min="1" required>
           </label>
         </div>
+        <div class="form-row">
+          <label>Date<br>
+            <input type="date" id="sale-date" required>
+          </label>
+          <label>Description<br>
+            <input type="text" id="sale-description" placeholder="e.g., Cotton fabric, 10 meters">
+          </label>
+        </div>
         <button type="submit" class="btn btn-primary">Add Sale</button>
       </form>
       <table id="sales-table">
-        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Description</th><th>Actions</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -90,10 +141,22 @@
             <input type="number" id="payment-amount" min="1" required>
           </label>
         </div>
+        <div class="form-row">
+          <label>Date<br>
+            <input type="date" id="payment-date" required>
+          </label>
+          <label>Method<br>
+            <select id="payment-method">
+              <option value="Cash">Cash</option>
+              <option value="Bank">Bank</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+          </label>
+        </div>
         <button type="submit" class="btn btn-primary">Add Payment</button>
       </form>
       <table id="payments-table">
-        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Action</th></tr></thead>
+        <thead><tr><th>Date</th><th>Customer</th><th>Amount</th><th>Method</th><th>Actions</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -109,63 +172,332 @@
     </div>
   </div>
 
+  <!-- Customer View -->
+  <div id="customer-view" class="container hidden">
+    <h1>DAWOOD AB COLLECTIONS<br><span style="font-size:0.7em; color:#0369a1">Your Ledger</span></h1>
+    
+    <div id="status-message"></div>
+    
+    <div id="customer-info" class="customer-info">
+      <!-- Customer info will be displayed here -->
+    </div>
+    
+    <div class="actions">
+      <button class="btn btn-success" onclick="downloadMyLedger()">📥 Download My Ledger</button>
+      <button class="btn btn-danger" onclick="logout()">🚪 Back to Login</button>
+    </div>
+    
+    <div class="customer-view">
+      <h3>My Sales</h3>
+      <table id="customer-sales-table">
+        <thead><tr><th>Date</th><th>Amount</th><th>Description</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    
+    <div class="customer-view">
+      <h3>My Payments</h3>
+      <table id="customer-payments-table">
+        <thead><tr><th>Date</th><th>Amount</th><th>Method</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
   <script>
-    // --- Data Storage ---
+    // Password Protection
+    const ADMIN_PASSWORD = 'abdullah123';
+    
+    function togglePassword() {
+      const passwordInput = document.getElementById('password-input');
+      const toggleBtn = passwordInput.nextElementSibling;
+      
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        passwordInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+      }
+    }
+    
+    function login() {
+      const password = document.getElementById('password-input').value;
+      if (password === ADMIN_PASSWORD) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('main-ledger').classList.remove('hidden');
+        renderAll();
+        showStatus('Welcome! Admin access granted.', 'success');
+      } else {
+        alert('❌ Incorrect password! Please try again.');
+        document.getElementById('password-input').value = '';
+        document.getElementById('password-input').focus();
+      }
+    }
+    
+    function customerLogin() {
+      const phone = document.getElementById('customer-phone-input').value.trim();
+      if (!phone) {
+        showStatus('Please enter your phone number!', 'error');
+        return;
+      }
+      
+      const customers = getData('customers');
+      const customer = customers.find(c => c.phone === phone);
+      
+      if (customer) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('customer-view').classList.remove('hidden');
+        showCustomerView(customer);
+        showStatus('Welcome ' + customer.name + '!', 'success');
+      } else {
+        if (customers.length === 0) {
+          showStatus('No customers in system yet. Please contact admin.', 'error');
+        } else {
+          showStatus('Phone number not found!', 'error');
+        }
+      }
+    }
+    
+    function logout() {
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('main-ledger').classList.add('hidden');
+      document.getElementById('customer-view').classList.add('hidden');
+      document.getElementById('password-input').value = '';
+      document.getElementById('customer-phone-input').value = '';
+    }
+    
+    function showCustomerView(customer) {
+      const customers = getData('customers');
+      const sales = getData('sales');
+      const payments = getData('payments');
+      
+      const customerIdx = customers.findIndex(c => c.phone === customer.phone);
+      const customerSales = sales.filter(s => s.customerIdx === customerIdx);
+      const customerPayments = payments.filter(p => p.customerIdx === customerIdx);
+      
+      document.getElementById('customer-info').innerHTML = 
+        '<h3>' + customer.name + '</h3>' +
+        '<p><strong>Phone:</strong> ' + customer.phone + '</p>' +
+        '<p><strong>City:</strong> ' + customer.city + '</p>' +
+        '<p><strong>Current Balance:</strong> ' + formatPKR(customer.balance) + '</p>';
+      
+      const salesTbody = document.querySelector('#customer-sales-table tbody');
+      salesTbody.innerHTML = '';
+      customerSales.forEach(sale => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + formatDate(sale.date) + '</td><td>' + formatPKR(sale.amount) + '</td><td>' + (sale.description || '') + '</td>';
+        salesTbody.appendChild(tr);
+      });
+      
+      const paymentsTbody = document.querySelector('#customer-payments-table tbody');
+      paymentsTbody.innerHTML = '';
+      customerPayments.forEach(payment => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + formatDate(payment.date) + '</td><td>' + formatPKR(payment.amount) + '</td><td>' + (payment.method || 'Cash') + '</td>';
+        paymentsTbody.appendChild(tr);
+      });
+    }
+    
+    function downloadMyLedger() {
+      const phone = document.getElementById('customer-phone-input').value.trim();
+      const customers = getData('customers');
+      const customer = customers.find(c => c.phone === phone);
+      
+      if (!customer) return;
+      
+      const customerIdx = customers.findIndex(c => c.phone === phone);
+      downloadCustomerLedger(customerIdx);
+    }
+
+    // Data Storage
     function getData(key) {
       return JSON.parse(localStorage.getItem(key) || '[]');
     }
+    
     function setData(key, value) {
       localStorage.setItem(key, JSON.stringify(value));
     }
 
-    // --- Customers ---
+    // Status Messages
+    function showStatus(message, type = 'success') {
+      const statusDiv = document.getElementById('status-message');
+      if (statusDiv) {
+        statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
+        setTimeout(() => statusDiv.innerHTML = '', 3000);
+      } else {
+        alert(message);
+      }
+    }
+
+    // Save/Export/Import Functions
+    function saveData() {
+      const data = {
+        customers: getData('customers'),
+        sales: getData('sales'),
+        payments: getData('payments'),
+        lastSaved: new Date().toISOString()
+      };
+      setData('backup', data);
+      showStatus('Data backed up successfully!', 'success');
+    }
+
+    function exportData() {
+      const customers = getData('customers');
+      const sales = getData('sales');
+      const payments = getData('payments');
+      
+      const data = { customers, sales, payments };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'dawood-ledger-' + new Date().toISOString().split('T')[0] + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Data exported successfully!', 'success');
+    }
+
+    function importData() {
+      document.getElementById('import-file').click();
+    }
+
+    function handleImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.customers) setData('customers', data.customers);
+          if (data.sales) setData('sales', data.sales);
+          if (data.payments) setData('payments', data.payments);
+          
+          renderAll();
+          showStatus('Data imported successfully!', 'success');
+        } catch (error) {
+          showStatus('Error importing data. Please check file format.', 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadCustomerLedger(customerIdx) {
+      const customers = getData('customers');
+      const sales = getData('sales');
+      const payments = getData('payments');
+      const customer = customers[customerIdx];
+      
+      if (!customer) return;
+      
+      const customerSales = sales.filter(s => s.customerIdx === customerIdx);
+      const customerPayments = payments.filter(p => p.customerIdx === customerIdx);
+      
+      let ledgerText = 'DAWOOD AB COLLECTIONS\n';
+      ledgerText += 'Customer Ledger\n';
+      ledgerText += '================\n\n';
+      ledgerText += 'Customer: ' + customer.name + '\n';
+      ledgerText += 'Phone: ' + customer.phone + '\n';
+      ledgerText += 'City: ' + customer.city + '\n';
+      ledgerText += 'Current Balance: ' + formatPKR(customer.balance) + '\n\n';
+      
+      ledgerText += 'SALES:\n';
+      ledgerText += 'Date\t\tAmount\t\tDescription\n';
+      customerSales.forEach(sale => {
+        ledgerText += formatDate(sale.date) + '\t' + formatPKR(sale.amount) + '\t\t' + (sale.description || '') + '\n';
+      });
+      
+      ledgerText += '\nPAYMENTS:\n';
+      ledgerText += 'Date\t\tAmount\t\tMethod\n';
+      customerPayments.forEach(payment => {
+        ledgerText += formatDate(payment.date) + '\t' + formatPKR(payment.amount) + '\t\t' + (payment.method || 'Cash') + '\n';
+      });
+      
+      const blob = new Blob([ledgerText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ledger-' + customer.name.replace(/\s+/g, '-') + '-' + new Date().toISOString().split('T')[0] + '.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      showStatus('Ledger for ' + customer.name + ' downloaded!', 'success');
+    }
+
+    // Customers
     function renderCustomers() {
       const customers = getData('customers');
       const tbody = document.querySelector('#customers-table tbody');
       tbody.innerHTML = '';
       customers.forEach((c, i) => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${c.name}</td><td>${c.phone}</td><td>${c.city}</td><td>${formatPKR(c.balance)}</td>
-          <td><button class="btn btn-danger btn-small" onclick="deleteCustomer(${i})">Delete</button></td>`;
+        tr.innerHTML = '<td>' + c.name + '</td><td>' + c.phone + '</td><td>' + c.city + '</td><td>' + formatPKR(c.balance) + '</td><td><button class="btn btn-danger btn-small" onclick="deleteCustomer(' + i + ')">Delete</button></td>';
         tbody.appendChild(tr);
       });
       updateCustomerSelects();
       renderSummary();
     }
+    
     function addCustomer(e) {
       e.preventDefault();
       const name = document.getElementById('customer-name').value.trim();
       const phone = document.getElementById('customer-phone').value.trim();
       const city = document.getElementById('customer-city').value.trim();
+      const address = document.getElementById('customer-address').value.trim();
       if (!name) return;
+      
       const customers = getData('customers');
-      customers.push({ name, phone, city, balance: 0 });
+      customers.push({ name, phone, city, address, balance: 0 });
       setData('customers', customers);
       e.target.reset();
       renderCustomers();
     }
+    
     function deleteCustomer(idx) {
       if (!confirm('Delete this customer?')) return;
       const customers = getData('customers');
+      const sales = getData('sales');
+      const payments = getData('payments');
+      
+      // Remove all sales and payments for this customer
+      const newSales = sales.filter(s => s.customerIdx !== idx);
+      const newPayments = payments.filter(p => p.customerIdx !== idx);
+      
+      // Update customer indices for remaining customers
+      newSales.forEach(s => {
+        if (s.customerIdx > idx) s.customerIdx--;
+      });
+      newPayments.forEach(p => {
+        if (p.customerIdx > idx) p.customerIdx--;
+      });
+      
+      // Remove customer
       customers.splice(idx, 1);
+      
+      // Save all data
       setData('customers', customers);
+      setData('sales', newSales);
+      setData('payments', newPayments);
+      
       renderCustomers();
       renderSales();
       renderPayments();
+      showStatus('Customer and all related data deleted!', 'success');
     }
+    
     function updateCustomerSelects() {
       const customers = getData('customers');
       const saleSel = document.getElementById('sale-customer');
       const paySel = document.getElementById('payment-customer');
-      saleSel.innerHTML = paySel.innerHTML = '';
+      saleSel.innerHTML = paySel.innerHTML = '<option value="">Select Customer</option>';
       customers.forEach((c, i) => {
-        const opt = `<option value="${i}">${c.name}</option>`;
+        const opt = '<option value="' + i + '">' + c.name + '</option>';
         saleSel.innerHTML += opt;
         paySel.innerHTML += opt;
       });
     }
 
-    // --- Sales ---
+    // Sales
     function renderSales() {
       const sales = getData('sales');
       const customers = getData('customers');
@@ -174,42 +506,51 @@
       sales.forEach((s, i) => {
         const c = customers[s.customerIdx] || { name: 'Unknown' };
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${formatDate(s.date)}</td><td>${c.name}</td><td>${formatPKR(s.amount)}</td>
-          <td><button class="btn btn-danger btn-small" onclick="deleteSale(${i})">Delete</button></td>`;
+        tr.innerHTML = '<td>' + formatDate(s.date) + '</td><td>' + c.name + '</td><td>' + formatPKR(s.amount) + '</td><td>' + (s.description || '') + '</td><td><button class="btn btn-danger btn-small" onclick="deleteSale(' + i + ')">Delete</button></td>';
         tbody.appendChild(tr);
       });
     }
+    
     function addSale(e) {
       e.preventDefault();
       const customerIdx = +document.getElementById('sale-customer').value;
       const amount = +document.getElementById('sale-amount').value;
-      if (isNaN(customerIdx) || !amount) return;
+      const date = document.getElementById('sale-date').value;
+      const description = document.getElementById('sale-description').value.trim();
+      
+      if (isNaN(customerIdx) || !amount || !date) return;
+      
       const sales = getData('sales');
-      sales.push({ customerIdx, amount, date: Date.now() });
+      sales.push({ customerIdx, amount, date: new Date(date).getTime(), description });
       setData('sales', sales);
-      // Update customer balance
+      
       const customers = getData('customers');
       customers[customerIdx].balance += amount;
       setData('customers', customers);
+      
       e.target.reset();
+      document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
       renderSales();
       renderCustomers();
     }
+    
     function deleteSale(idx) {
       if (!confirm('Delete this sale?')) return;
       const sales = getData('sales');
       const sale = sales[idx];
       sales.splice(idx, 1);
       setData('sales', sales);
-      // Update customer balance
+      
       const customers = getData('customers');
       customers[sale.customerIdx].balance -= sale.amount;
       setData('customers', customers);
+      
       renderSales();
       renderCustomers();
+      showStatus('Sale deleted!', 'success');
     }
 
-    // --- Payments ---
+    // Payments
     function renderPayments() {
       const payments = getData('payments');
       const customers = getData('customers');
@@ -218,67 +559,83 @@
       payments.forEach((p, i) => {
         const c = customers[p.customerIdx] || { name: 'Unknown' };
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${formatDate(p.date)}</td><td>${c.name}</td><td>${formatPKR(p.amount)}</td>
-          <td><button class="btn btn-danger btn-small" onclick="deletePayment(${i})">Delete</button></td>`;
+        tr.innerHTML = '<td>' + formatDate(p.date) + '</td><td>' + c.name + '</td><td>' + formatPKR(p.amount) + '</td><td>' + (p.method || 'Cash') + '</td><td><button class="btn btn-danger btn-small" onclick="deletePayment(' + i + ')">Delete</button></td>';
         tbody.appendChild(tr);
       });
     }
+    
     function addPayment(e) {
       e.preventDefault();
       const customerIdx = +document.getElementById('payment-customer').value;
       const amount = +document.getElementById('payment-amount').value;
-      if (isNaN(customerIdx) || !amount) return;
+      const date = document.getElementById('payment-date').value;
+      const method = document.getElementById('payment-method').value;
+      
+      if (isNaN(customerIdx) || !amount || !date) return;
+      
       const payments = getData('payments');
-      payments.push({ customerIdx, amount, date: Date.now() });
+      payments.push({ customerIdx, amount, date: new Date(date).getTime(), method });
       setData('payments', payments);
-      // Update customer balance
+      
       const customers = getData('customers');
       customers[customerIdx].balance -= amount;
       setData('customers', customers);
+      
       e.target.reset();
+      document.getElementById('payment-date').value = new Date().toISOString().split('T')[0];
       renderPayments();
       renderCustomers();
     }
+    
     function deletePayment(idx) {
       if (!confirm('Delete this payment?')) return;
       const payments = getData('payments');
       const payment = payments[idx];
       payments.splice(idx, 1);
       setData('payments', payments);
-      // Update customer balance
+      
       const customers = getData('customers');
       customers[payment.customerIdx].balance += payment.amount;
       setData('customers', customers);
+      
       renderPayments();
       renderCustomers();
+      showStatus('Payment deleted!', 'success');
     }
 
-    // --- Summary ---
+    // Summary
     function renderSummary() {
       const customers = getData('customers');
       const tbody = document.querySelector('#summary-table tbody');
       tbody.innerHTML = '';
       let total = 0;
-      customers.forEach(c => {
+      customers.forEach((c, i) => {
         total += c.balance;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${c.name}</td><td>${formatPKR(c.balance)}</td>`;
+        tr.innerHTML = '<td>' + c.name + '</td><td>' + formatPKR(c.balance) + '</td>';
         tbody.appendChild(tr);
       });
-      document.getElementById('summary-info').textContent =
-        'Total Receivable: ' + formatPKR(total);
+      document.getElementById('summary-info').textContent = 'Total Receivable: ' + formatPKR(total);
     }
 
-    // --- Helpers ---
+    // Helpers
     function formatDate(ts) {
       const d = new Date(ts);
       return d.toLocaleDateString();
     }
+    
     function formatPKR(amount) {
       return '₨' + amount.toLocaleString('en-PK');
     }
 
-    // --- Tab Navigation ---
+    function renderAll() {
+      renderCustomers();
+      renderSales();
+      renderPayments();
+      renderSummary();
+    }
+
+    // Tab Navigation
     document.querySelectorAll('nav button').forEach(btn => {
       btn.onclick = function() {
         document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
@@ -288,21 +645,42 @@
       };
     });
 
-    // --- Form Listeners ---
+    // Form Listeners
     document.getElementById('customer-form').onsubmit = addCustomer;
     document.getElementById('sale-form').onsubmit = addSale;
     document.getElementById('payment-form').onsubmit = addPayment;
 
-    // --- Initial Render ---
-    renderCustomers();
-    renderSales();
-    renderPayments();
-    renderSummary();
+    // Set default dates
+    document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('payment-date').value = new Date().toISOString().split('T')[0];
 
-    // --- Expose delete functions for inline buttons ---
+    // Auto-save every 30 seconds
+    setInterval(saveData, 30000);
+
+    // Add test customer if none exist
+    function addTestCustomer() {
+      const customers = getData('customers');
+      if (customers.length === 0) {
+        const testCustomer = {
+          name: 'Test Customer',
+          phone: '03001234567',
+          city: 'Lahore',
+          address: 'Test Address',
+          balance: 0
+        };
+        customers.push(testCustomer);
+        setData('customers', customers);
+      }
+    }
+    
+    // Initialize
+    addTestCustomer();
+
+    // Expose functions for inline buttons
     window.deleteCustomer = deleteCustomer;
     window.deleteSale = deleteSale;
     window.deletePayment = deletePayment;
+    window.downloadCustomerLedger = downloadCustomerLedger;
   </script>
 </body>
 </html> 
