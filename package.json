@@ -1,0 +1,16 @@
+{
+  "name": "dawood-ledger",
+  "version": "1.0.0",
+  "description": "DAWOOD AB COLLECTIONS Ledger System",
+  "main": "ledger.html",
+  "scripts": {
+    "build": "echo 'Static HTML file - no build required'",
+    "start": "echo 'Open ledger.html in browser'"
+  },
+  "keywords": ["ledger", "accounting", "business"],
+  "author": "DAWOOD AB COLLECTIONS",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+} 
